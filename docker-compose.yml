@@ -1,0 +1,124 @@
+# Common environment variables for services
+x-environment:
+  &default-env-vars
+  SPRING_CONFIG_IMPORT: optional:configserver:http://app-config-server:8888
+  EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+  EUREKA_CLIENT_FETCH_REGISTRY: "true"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://app-eureka-server:8761/eureka/
+
+services:
+  # Config Server
+  config-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: config-server
+        PORT: 16888
+    container_name: app-config-server
+    image: ms-app-config-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://app-config-server:16888/actuator/health"]
+      interval: 10s
+      retries: 10
+    restart: always
+    ports:
+      - "16888:16888"
+    networks:
+      - app-network
+
+  # Eureka Service
+  eureka-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: eureka-server
+        PORT: 8761
+    container_name: app-eureka-server
+    image: ms-app-eureka-server
+    restart: always
+    depends_on:
+      config-server:
+        condition: service_healthy
+    ports:
+      - "8761:8761"
+    networks:
+      - app-network
+    environment:
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://app-discovery:8761/eureka/
+
+  # Gateway Server
+  gateway-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: gateway-server
+        PORT: 8222
+    container_name: app-gateway-server
+    image: ms-app-gateway-server
+    restart: always
+    depends_on:
+      config-server:
+        condition: service_healthy
+    ports:
+      - "16222:16222"
+    networks:
+      - app-network
+    environment:
+      <<: *default-env-vars
+
+  ## Order Service
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: order-service
+        PORT: 16000
+    container_name: app-order-service
+    image: ms-app-order-service
+    restart: always
+    depends_on:
+      config-server:
+        condition: service_healthy
+    ports:
+      - "16000:16000"
+    networks:
+      - app-network
+    environment:
+      <<: *default-env-vars
+
+  # Payment Service
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE_NAME: payment-service
+        PORT: 16005
+    container_name: app-payment-service
+    image: ms-app-payment-service
+    restart: always
+    depends_on:
+      config-server:
+        condition: service_healthy
+    ports:
+      - "16005:16005"
+    networks:
+      - app-network
+    environment:
+      <<: *default-env-vars
+
+# Network configuration
+networks:
+  app-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
