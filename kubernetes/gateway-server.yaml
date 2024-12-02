@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      initContainers:
+        - name: wait-for-om-config-server
+          image: busybox
+          command: [ 'sh', '-c', 'until nc -z ms-config-server 16888; do echo waiting for ms-config-server; sleep 2; done' ]
+      containers:
+        - name: ms-api-gateway
+          image: ms-app-gateway-server
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 16222
+          envFrom:
+            - configMapRef:
+                name: common-env
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-api-gateway
+  labels:
+    app: api-gateway
+spec:
+  type: NodePort
+  ports:
+    - port: 16222
+      targetPort: 16222
+  selector:
+    app: api-gateway

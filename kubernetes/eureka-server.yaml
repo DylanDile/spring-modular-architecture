@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-eureka-server
+  labels:
+    app: eureka-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eureka-server
+  template:
+    metadata:
+      labels:
+        app: eureka-server
+    spec:
+      initContainers:
+        - name: wait-for-config-server
+          image: busybox
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for ms-config-server to be ready..."
+              until nc -z ms-config-server 16888; do
+                echo "ms-config-server not ready, retrying in 2 seconds..."
+                sleep 2
+              done
+              echo "ms-config-server is ready."
+      containers:
+        - name: eureka-server
+          image: ms-app-eureka-server
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8761
+          env:
+            - name: EUREKA_CLIENT_REGISTER_WITH_EUREKA
+              value: "false"
+            - name: EUREKA_CLIENT_FETCH_REGISTRY
+              value: "false"
+            - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+              value: http://ms-eureka-server:8761/eureka/
+            - name: SPRING_PROFILES_ACTIVE
+              value: deploy
+            - name: SPRING_CONFIG_IMPORT
+              value: optional:configserver:http://ms-config-server:16888
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-eureka-server
+  labels:
+    app: eureka-server
+spec:
+  type: NodePort
+  ports:
+    - port: 8761
+      targetPort: 8761
+  selector:
+    app: eureka-server

@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-order-service
+  labels:
+    app: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      initContainers:
+        - name: wait-for-om-config-server
+          image: busybox
+          command: [ 'sh', '-c', 'until nc -z ms-config-server 16888; do echo waiting for ms-config-server; sleep 2; done' ]
+      containers:
+        - name: ms-order-service
+          image: ms-app-order-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 16000
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "deploy"
+          envFrom:
+             - configMapRef:
+                 name: common-env
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-order-service
+  labels:
+    app: order-service
+spec:
+  ports:
+    - port: 16000
+      targetPort: 16000
+  selector:
+    app: order-service
+  type: ClusterIP

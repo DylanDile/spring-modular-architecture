@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: common-env
+data:
+  SPRING_CONFIG_IMPORT: "optional:configserver:http://ms-config-server:16888"
+  EUREKA_CLIENT_REGISTER_WITH_EUREKA: "true"
+  EUREKA_CLIENT_FETCH_REGISTRY: "true"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://ms-eureka-server:8761/eureka/"
+  SPRING_PROFILES_ACTIVE: "deploy"

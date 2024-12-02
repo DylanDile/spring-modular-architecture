@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      initContainers:
+        - name: wait-for-om-config-server
+          image: busybox
+          command: [ 'sh', '-c', 'until nc -z ms-config-server 16888; do echo waiting for ms-config-server; sleep 2; done' ]
+      containers:
+        - name: ms-payment-service
+          image: ms-app-payment-service
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 16005
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "deploy"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://ms-postgres:5432/msdb"
+            - name: SPRING_DATASOURCE_DRIVER_CLASS_NAME
+              value: "org.postgresql.Driver"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "postgres"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "password"
+            - name: ORDER_SERVICE_URL
+              value: "http://ms-order-service:16000"
+          envFrom:
+            - configMapRef:
+                name: common-env
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-payment-service
+  labels:
+    app: payment-service
+spec:
+  ports:
+    - port: 16005
+      targetPort: 16005
+  selector:
+    app: payment-service
+  type: ClusterIP

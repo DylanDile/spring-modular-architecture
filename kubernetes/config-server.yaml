@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-config-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: config-server
+  template:
+    metadata:
+      labels:
+        app: config-server
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: ms-config-server
+          image: ms-app-config-server
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 16888
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 16888
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-config-server
+spec:
+  type: NodePort
+  ports:
+    - port: 16888
+      targetPort: 16888
+  selector:
+    app: config-server
